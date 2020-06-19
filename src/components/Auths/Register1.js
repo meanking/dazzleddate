@@ -1,7 +1,8 @@
 import React, { Component } from "react";
 import {
   Text,
-  Content
+  Content,
+  Right
 } from "native-base"
 import {
   ImageBackground,
@@ -12,8 +13,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   StatusBar,
-  TextInput
-  // Alert
+  TextInput,
+  Alert,
 } from "react-native";
 // import Picker from 'react-native-wheel-picker';
 import logo from '../../assets/images/logo.png';
@@ -100,9 +101,20 @@ class Register1 extends Component {
     //   date = "" + d_item[this.state.selected_dItem]
     // }
     // var birthday = y_item[this.state.selected_yItem] + "-" + mon + "-" + date;
+    if (this.state.description === '') {
+      Alert.alert(
+        '',
+        "Introduction is required",
+        [
+          {text: 'OK', onPress: () => console.log('OK Pressed')},
+        ],
+        {cancelable: false},
+      );
+      return;
+    }
     var gender = 1;
     if (!this.state.isMale) {
-      gender = 0
+      gender = 2
     }
     // var nowDate = new Date();
     // var nowYear = nowDate.getFullYear();
@@ -134,15 +146,16 @@ class Register1 extends Component {
           <View style={{ width: DEVICE_WIDTH * 0.8, marginLeft: DEVICE_WIDTH * 0.1, marginTop: 50, }}>
             <Text style={{ color: '#808080', fontSize: 12, marginLeft: 10 }}>{"INTRODUCTION"}</Text>
           </View>
-          <View style={{ width: DEVICE_WIDTH * 0.8, marginLeft: DEVICE_WIDTH * 0.1,  marginTop: Platform.select({ 'android': 15, 'ios': 160 })}}>
+          <View style={{ width: DEVICE_WIDTH * 0.8, marginLeft: DEVICE_WIDTH * 0.1,  marginTop: Platform.select({ 'android': 15, 'ios': 15 })}}>
             <TextInput
-              style={{ borderColor: 'gray', borderWidth: 1 }}
+              style={{ borderColor: 'gray', borderWidth: 1, minHeight: DEVICE_HEIGHT * 0.3 }}
               onChangeText={description => { this.setState({ description }) }}
               value={this.state.description}
-              maxLength={40}
+              maxLength={255}
               multiline
-              numberOfLines={4}
+              textAlignVertical="top"
             />
+            <Text style={styles.requiredSent}>* This field is required</Text>
           </View>
           {/* <View style={{ width: DEVICE_WIDTH * 0.8, marginLeft: DEVICE_WIDTH * 0.1, marginTop: 50, }}>
             <Text style={{ color: '#808080', fontSize: 12, marginLeft: 10 }}>{"BIRTHDAY"}</Text>
@@ -176,7 +189,7 @@ class Register1 extends Component {
           <View style={{ width: DEVICE_WIDTH * 0.8, marginLeft: DEVICE_WIDTH * 0.1, marginTop: 50, }}>
             <Text style={{ color: '#808080', fontSize: 12, marginLeft: 10 }}>{"GENDER"}</Text>
           </View>
-          <View style={{ width: DEVICE_WIDTH * 0.8, marginLeft: DEVICE_WIDTH * 0.1, height: 30, marginTop: Platform.select({ 'android': 15, 'ios': 160 }), flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: DEVICE_WIDTH * 0.8, marginLeft: DEVICE_WIDTH * 0.1, height: 30, marginTop: Platform.select({ 'android': 15, 'ios': 15 }), flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
             <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }} onPress={() => this.setState({ isMale: true })}>
               {!this.state.isMale && <Image source={unradioIcon} style={{ tintColor: '#DE5859', width: 15, height: 15 }} />}
               {this.state.isMale && <Image source={radioIcon} style={{ tintColor: '#DE5859', width: 15, height: 15 }} />}
@@ -213,5 +226,10 @@ const styles = StyleSheet.create({
     color: '#3333ff',
     marginBottom: 5,
   },
+  requiredSent: {
+    textAlign: 'right',
+    color: 'red',    
+    fontSize: 10,   
+  }
 });
 export default Register1;

@@ -2,7 +2,7 @@ import React, { Component } from "react";
 import {
   Text
 } from "native-base"
-import { 
+import {
   ImageBackground,
   BackHandler,
   Image,
@@ -12,7 +12,8 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  StatusBar
+  StatusBar,
+  AsyncStorage,
 } from "react-native";
 import logo from '../../assets/images/logo.png';
 import slogo from '../../assets/images/second_bg.png';
@@ -21,7 +22,7 @@ import { ButtonGroup } from 'react-native-elements';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import Global from '../Global';
 
-import {SERVER_URL} from '../../config/constants';
+import { SERVER_URL } from '../../config/constants';
 
 class Filter extends Component {
   constructor(props) {
@@ -30,15 +31,16 @@ class Filter extends Component {
       selectedIndex: 0,
       fromage: 0,
       toage: 0,
-      gender: '',
+      gender: 1,
       languageData: [],
-      language: '',
+      language: 'All',
       cityData: [],
-      city: '',
-      country: '',
+      city: 'All',
+      country: 'All',
       countryData: [],
-      multiSliderValue: [18, 30],
-      sliderOneValue: [50]
+      multiSliderValue: [18, 100],
+      sliderOneValue: [2000],
+      disable: true
     };
     this.updateIndex = this.updateIndex.bind(this)
   }
@@ -46,26 +48,101 @@ class Filter extends Component {
   static navigationOptions = {
     header: null
   };
-  componentDidMount() {
-    Global.saveData.nowPage = 'Filter';
+
+  componentWillMount() {
     this.backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       this.onBack(); // works best when the goBack is async
       return true;
     });
-    this.setState({
-      selectedIndex: Global.saveData.u_gender === 1 ? 1 : 0,
-      multiSliderValue: [Global.saveData.f_fromage, Global.saveData.f_toage],
-      sliderOneValue: [Global.saveData.f_distance]
+    Global.saveData.nowPage = 'Filter';
+    AsyncStorage.getItem('filterData', (err, result) => {
+      if (result !== null) {
+        let filterStore = JSON.parse(result);
+        let sliderOneValue = [];
+        let multiSliderValue = [];
+        sliderOneValue.push(filterStore.distance ? filterStore.distance : 2000);
+        multiSliderValue.push(filterStore.fromAge, filterStore.toAge);
+        // alert(JSON.stringify(multiSliderValue));
+        this.setState({
+          selectedIndex: filterStore.gender - 1,
+          multiSliderValue,
+          sliderOneValue
+        });
+        this.getAllAssetData().then(() => {
+          this.setState({
+            city: this.state.cityData[filterStore.city_arr].value,
+            country: this.state.countryData[filterStore.country_arr].value,
+            language: this.state.languageData[filterStore.language_arr].value,
+          });
+        });
+        // this.get_ethnicity().then(() => {
+        //   this.setState({
+        //     city: this.state.cityData[filterStore.city_index].value,
+        //   })
+        // });
+        // this.get_country().then(() => {
+        //   this.setState({
+        //     country: this.state.countryData[filterStore.country_index].value
+        //   })
+        // });
+        // this.get_language().then(() => {
+        //   this.setState({
+        //     language: this.state.languageData[filterStore.language_index].value,
+        //   });
+        // });
+      } else {
+        this.getAllAssetData();
+        // this.get_ethnicity();
+        // this.get_country();
+        // this.get_language();
+      };
     });
-    this.get_ethnicity();
-    this.get_country();
-    this.get_language();
+    this.setState({
+      disable: false
+    })
   }
   componentWillUnmount() {
     this.backHandler.remove();
   }
-  get_ethnicity() {
-    fetch(`${SERVER_URL}/api/ethnicity/all`, {
+
+  getAllAssetData = async () => {
+    await fetch(`${SERVER_URL}/api/user/getAllAssetData`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    }).then((response) => response.json())
+      .then((responseJson) => {
+        if (!responseJson.error) {
+          let data = responseJson.data;
+          
+          let countries = data.country;
+          let ethnicities = data.ethnicity;
+          let languagies = data.language;
+
+          let ethnicityData = [{ value: 'All' }];
+          let countryData = [{ value: 'All' }];
+          let languageData = [{ value: 'All' }];
+          for (var i = 0; i < ethnicities.length; i++) {
+            ethnicityData.push({ value: ethnicities[i].ethnicity_name, id: ethnicities[i].id });
+          }
+          this.setState({ cityData: ethnicityData,  });
+          for (var i = 0; i < countries.length; i++) {
+            countryData.push({ value: countries[i].country_name, id: countries[i].id });
+          }
+          this.setState({ countryData: countryData });
+          for (var i = 0; i < languagies.length; i++) {
+            languageData.push({ value: languagies[i].language_name, id: languagies[i].id });
+          }
+          this.setState({ languageData: languageData })
+        }
+      })
+      .catch((error) => {
+        return
+      }); 
+  }
+  get_ethnicity = async () => {
+    await fetch(`${SERVER_URL}/api/ethnicity/all`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -73,14 +150,13 @@ class Filter extends Component {
       }
     }).then((response) => response.json())
       .then((responseJson) => {
-        //alert(JSON.stringify(responseJson))
         if (!responseJson.error) {
           var data = responseJson.data;
           var itmes = [{ value: 'All' }];
           for (var i = 0; i < data.length; i++) {
-            itmes.push({ value: data[i].ethnicity_name });
+            itmes.push({ value: data[i].ethnicity_name, id: data[i].id });
           }
-          this.setState({ city: Global.saveData.f_city, cityData: itmes });
+          this.setState({ cityData: itmes });
         }
       })
       .catch((error) => {
@@ -88,8 +164,8 @@ class Filter extends Component {
         return
       });
   }
-  get_country() {
-    fetch(`${SERVER_URL}/api/country/all`, {
+  get_country = async () => {
+    await fetch(`${SERVER_URL}/api/country/all`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -102,9 +178,9 @@ class Filter extends Component {
           var data = responseJson.data;
           var itmes = [{ value: 'All' }];
           for (var i = 0; i < data.length; i++) {
-            itmes.push({ value: data[i].country_name })
+            itmes.push({ value: data[i].country_name, id: data[i].id })
           }
-          this.setState({ country: Global.saveData.f_county, countryData: itmes })
+          this.setState({ countryData: itmes })
         }
       })
       .catch((error) => {
@@ -113,8 +189,8 @@ class Filter extends Component {
       });
   }
 
-  get_language() {
-    fetch(`${SERVER_URL}/api/language/all`, {
+  get_language = async () => {
+    await fetch(`${SERVER_URL}/api/language/all`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -127,9 +203,9 @@ class Filter extends Component {
           var data = responseJson.data;
           var itmes = [{ value: 'All' }];
           for (var i = 0; i < data.length; i++) {
-            itmes.push({ value: data[i].language_name })
+            itmes.push({ value: data[i].language_name, id: data[i].id })
           }
-          this.setState({ language: Global.saveData.f_language, languageData: itmes })
+          this.setState({ languageData: itmes })
         }
       })
       .catch((error) => {
@@ -143,9 +219,7 @@ class Filter extends Component {
   updateIndex(selectedIndex) {
     this.setState({ selectedIndex })
   }
-  onBack() {
-    this.props.navigation.replace("Browse");
-  }
+
   multiSliderValuesChange = values => {
     this.setState({
       multiSliderValue: values,
@@ -176,62 +250,85 @@ class Filter extends Component {
     });
   };
   onApply() {
-    var lanD = this.state.languageData
-    var lanindex = 1;
+    let lanD = this.state.languageData
+    let lanindex = 0;
+    let lanArrIdx = 0;
     for (var i = 0; i < lanD.length; i++) {
-      if (lanD[i].value == this.state.language) {
-        lanindex = i
+      if (lanD[i].value === this.state.language && lanD[i].id) {
+        lanindex = lanD[i].id;
+        lanArrIdx = i;
         break;
       }
     }
 
-    var cityD = this.state.cityData
-    var cityindex = 1;
+    let cityD = this.state.cityData
+    let cityindex = 0;
+    let cityArrIdx = 0;
     for (var i = 0; i < cityD.length; i++) {
-      if (cityD[i].value == this.state.city) {
-        cityindex = i
+      if (cityD[i].value === this.state.city && cityD[i].id) {
+        cityindex = cityD[i].id;
+        cityArrIdx = i;
         break;
       }
     }
 
-    var countryD = this.state.countryData
-    var coutryindex = 1;
+    let countryD = this.state.countryData
+    let countryIndex = 0;
+    let countryArrIdx = 0;
     for (var i = 0; i < countryD.length; i++) {
-      if (countryD[i].value == this.state.country) {
-        coutryindex = i
+      if (countryD[i].value === this.state.country && countryD[i].id) {
+        countryIndex = countryD[i].id,
+        countryArrIdx = i;
         break;
       }
     }
 
-    Global.saveData.isFilter = true;
-    Global.saveData.removedFilter = false;
-    Global.saveData.filterData = {
-      "Gender": this.state.selectedIndex + 1,
-      "fromAge": this.state.multiSliderValue[0],
-      "toAge": this.state.multiSliderValue[1],
-      "Distance": this.state.sliderOneValue[0],
-      "lang": lanindex,
-      "City": cityindex,
-      "Country": coutryindex
-    }
+    let filterData = {
+      gender: this.state.selectedIndex + 1,
+      fromAge: this.state.multiSliderValue[0],
+      toAge: this.state.multiSliderValue[1],
+      distance: (this.state.sliderOneValue[0] === 2000 || this.state.sliderOneValue[0] === 1999) ? null : this.state.sliderOneValue[0],
+      language_index: lanindex,
+      city_index: cityindex,
+      country_index: countryIndex,
+      language_arr: lanArrIdx,
+      city_arr: cityArrIdx,
+      country_arr: countryArrIdx
+    };
+    let that = this;
+    this._storeData(filterData).then(() => {
+      that.onBack();
+    });
+  }
 
-    Global.saveData.f_gender = this.state.selectedIndex + 1
-    Global.saveData.f_fromage = this.state.multiSliderValue[0]
-    Global.saveData.f_toage = this.state.multiSliderValue[1]
-    Global.saveData.f_distance = this.state.sliderOneValue[0]
-    Global.saveData.f_city = this.state.city
-    Global.saveData.f_language = this.state.language
-    Global.saveData.f_county = this.state.country
-    this.onBack()
+  _storeData = async (data) => {
+    try {
+      await AsyncStorage.setItem('filterData', JSON.stringify(data));
+    } catch (error) {
+      // Error saving data
+    }
+  };
+
+  onBack() {
+    this.props.navigation.replace('BrowseList');
+  }
+
+  _storeClearData = async () => {
+    try {
+      await AsyncStorage.removeItem('filterData');
+    } catch (error) {
+      // Error saving data
+    }
   }
 
   removeAllFilters() {
-    Global.saveData.removedFilter = true
-    this.onBack()
+    let that = this;
+    this._storeClearData().then(() => {
+      that.onBack();
+    });
   }
   render() {
     const buttons = ['MALE', 'FEMALE']
-    const { selectedIndex } = this.state
     return (
       <View style={styles.contentContainer}>
         <StatusBar backgroundColor='#fff' barStyle='dark-content' />
@@ -250,7 +347,7 @@ class Filter extends Component {
           <View style={{ width: DEVICE_WIDTH, alignItems: 'center', justifyContent: 'center', marginTop: 5 }}>
             <ButtonGroup
               onPress={this.updateIndex}
-              selectedIndex={selectedIndex}
+              selectedIndex={this.state.selectedIndex}
               buttons={buttons}
               selectedButtonStyle={{ backgroundColor: '#DE5859', }}
               containerStyle={{ height: 40, width: DEVICE_WIDTH * 0.8, borderRadius: 20, borderColor: '#DE5859' }}
@@ -291,9 +388,9 @@ class Filter extends Component {
           <View style={{ width: DEVICE_WIDTH * 0.8, marginLeft: DEVICE_WIDTH * 0.1, marginTop: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Text style={{ color: '#808080', fontSize: 12 }}>{"DISTANCE"}</Text>
-              {(this.state.sliderOneValue[0] != 2000) &&
+              {(this.state.sliderOneValue[0] !== 2000 && this.state.sliderOneValue[0] !== 1999) &&
                 <Text style={{ color: '#808080', fontSize: 12 }}>{"" + this.state.sliderOneValue + " mile"}</Text>}
-              {(this.state.sliderOneValue[0] == 2000) &&
+              {(this.state.sliderOneValue[0] === 2000 || this.state.sliderOneValue[0] === 1999) &&
                 <Text style={{ color: '#808080', fontSize: 12 }}>{"NO LIMIT"}</Text>}
             </View>
             <View>
@@ -306,7 +403,7 @@ class Filter extends Component {
                 }}
                 customMarker={() => {
                   return (<TouchableOpacity style={{ width: 20, height: 20, opacity: 0.7, borderRadius: 10, backgroundColor: '#DE5859', alignItems: 'center', justifyContent: 'center' }}>
-                    <TouchableOpacity style={{ width: 5, height: 5, backgroundColor: '#f00', borderRadius: 2 }} />
+                    <TouchableOpacity style={{ width: 5, height: 5, backgroundColor: '#f00', borderRadius: 1 }} />
                   </TouchableOpacity>
                   )
                 }}
@@ -386,15 +483,20 @@ class Filter extends Component {
                <Text style={{color:'#fff'}}>{"Remove All Filters"}</Text>
              </TouchableOpacity>
           </View> */}
-          <View style={{ width: DEVICE_WIDTH * 0.8, marginLeft: DEVICE_WIDTH * 0.1, height: 20, alignItems: 'flex-end', justifyContent: 'flex-end', marginTop: 10 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: 180 }}>
-              <TouchableOpacity style={{ width: 80, height: 20, borderRadius: 5, borderColor: '#DE5859', alignItems: 'center', justifyContent: 'center' }}
-                onPress={() => this.onBack()}
+          <View style={{ width: DEVICE_WIDTH * 0.8, marginLeft: DEVICE_WIDTH * 0.1, height: 40, alignItems: 'center', justifyContent: 'center', marginTop: 20 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: 280 }}>              
+              <TouchableOpacity style={{ width:80, height:40, alignItems:'center', justifyContent:'center', borderRadius:5}}
+                onPress={()=>this.removeAllFilters()}
+              >
+                <Text style={{ color:'#DE5859', fontSize: 12, fontWeight: 'bold' }}>{"Clear All"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ width: 80, height: 40, borderRadius: 5, borderColor: '#DE5859', borderWidth: 1, alignItems: 'center', justifyContent: 'center' }}
+                onPress={() => this.props.navigation.pop()}
               >
                 <Text style={{ color: '#808080', fontSize: 12, fontWeight: 'bold' }}>{"CANCEL"}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ width: 80, height: 20, borderRadius: 5, backgroundColor: '#DE5859', alignItems: 'center', justifyContent: 'center' }}
-                onPress={() => this.onApply()}
+              <TouchableOpacity style={{ width: 80, height: 40, borderRadius: 5, backgroundColor: '#DE5859', alignItems: 'center', justifyContent: 'center' }}
+                onPress={() => this.onApply()} disabled={this.state.disable}
               >
                 <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>{"APPLY"}</Text>
               </TouchableOpacity>

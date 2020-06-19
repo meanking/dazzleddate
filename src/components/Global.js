@@ -39,5 +39,14 @@ module.exports.saveData =
         prematchID: "",
         preuserdistance: 0,
         prePage: '',
-        nowPage: ''
+        nowPage: '',
+        gem_price: '',
+        gem_number: 0,
+        coin_count: 0,
+        account_status: 0,
+        auto_block: 1,
+        is_admin: 0,
+        call_id: 0,
+        fan_count: 0,
+        coin_per_message: 0,
     };

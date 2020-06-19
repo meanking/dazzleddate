@@ -3,7 +3,12 @@ package com.pys.dazzleddate;
 import android.app.Application;
 
 import com.facebook.react.ReactApplication;
-import com.busfor.RNGooglePayPackage;
+import com.zmxv.RNSound.RNSoundPackage;
+import com.quickblox.reactnative.RNQbReactnativePackage;
+import com.reactnativecommunity.asyncstorage.AsyncStoragePackage;
+import com.zyu.ReactNativeWheelPickerPackage;
+import com.dylanvann.fastimage.FastImageViewPackage;
+import com.dooboolab.RNIap.RNIapPackage;
 import com.agontuk.RNFusedLocation.RNFusedLocationPackage;
 import com.swmansion.gesturehandler.react.RNGestureHandlerPackage;
 import com.evollu.react.fcm.FIRMessagingPackage;
@@ -12,7 +17,6 @@ import io.invertase.firebase.notifications.RNFirebaseNotificationsPackage;
 import io.invertase.firebase.messaging.RNFirebaseMessagingPackage;
 import com.learnium.RNDeviceInfo.RNDeviceInfo;
 import com.brentvatne.react.ReactVideoPackage;
-import com.zyu.ReactNativeWheelPickerPackage;
 import com.rnfs.RNFSPackage;
 import org.reactnative.camera.RNCameraPackage;
 import com.reactnativecommunity.asyncstorage.AsyncStoragePackage;
@@ -36,7 +40,12 @@ public class MainApplication extends Application implements ReactApplication {
     protected List<ReactPackage> getPackages() {
       return Arrays.<ReactPackage>asList(
           new MainReactPackage(),
-            new RNGooglePayPackage(),
+            new RNSoundPackage(),
+            new RNQbReactnativePackage(),
+            new AsyncStoragePackage(),
+            new ReactNativeWheelPickerPackage(),
+            new FastImageViewPackage(),
+            new RNIapPackage(),
             new RNFusedLocationPackage(),
             new RNGestureHandlerPackage(),
             new FIRMessagingPackage(),
@@ -45,10 +54,8 @@ public class MainApplication extends Application implements ReactApplication {
             new RNFirebaseMessagingPackage(),
             new RNDeviceInfo(),
             new ReactVideoPackage(),
-            new ReactNativeWheelPickerPackage(),
             new RNFSPackage(),
             new RNCameraPackage(),
-            new AsyncStoragePackage(),
             new ImagePickerPackage()
       );
     }

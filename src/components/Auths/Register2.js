@@ -13,17 +13,22 @@ import {
   TouchableOpacity,
   StatusBar,
   Alert,
-  PermissionsAndroid
+  BackAndroid,
+  PermissionsAndroid,
+  Linking
 } from "react-native";
+import QB from 'quickblox-react-native-sdk';
 import DeviceInfo from 'react-native-device-info';
 import AnimateLoadingButton from 'react-native-animate-loading-button';
 import Geolocation from 'react-native-geolocation-service';
+import { connect } from 'react-redux';
+import { bindActionCreators } from 'redux';
 import nativeFirebase from 'react-native-firebase';
 import logo from '../../assets/images/logo.png';
 import slogo from '../../assets/images/second_bg.png';
 import { Dropdown } from 'react-native-material-dropdown';
 import Global from '../Global';
-
+import { updateFCMTocken, updateUserData, updateQuickBlox } from '../../../Action';
 import { SERVER_URL } from '../../config/constants';
 
 class Register2 extends Component {
@@ -42,7 +47,8 @@ class Register2 extends Component {
       cityData: [],
       city: '',
       country: '',
-      countryData: []
+      countryData: [],
+      register_click_count: 0,
     };
   }
 
@@ -76,7 +82,7 @@ class Register2 extends Component {
           var data = responseJson.data;
           var itmes = [];
           for (var i = 0; i < data.length; i++) {
-            itmes.push({ value: data[i].ethnicity_name })
+            itmes.push({ value: data[i].ethnicity_name, id: data[i].id })
           }
           this.setState({ city: data[0].ethnicity_name, cityData: itmes })
         }
@@ -99,7 +105,7 @@ class Register2 extends Component {
           var data = responseJson.data;
           var itmes = [];
           for (var i = 0; i < data.length; i++) {
-            itmes.push({ value: data[i].country_name })
+            itmes.push({ value: data[i].country_name, id: data[i].id })
           }
           this.setState({ country: data[0].country_name, countryData: itmes })
         }
@@ -123,7 +129,7 @@ class Register2 extends Component {
           var data = responseJson.data;
           var itmes = [];
           for (var i = 0; i < data.length; i++) {
-            itmes.push({ value: data[i].language_name })
+            itmes.push({ value: data[i].language_name, id: data[i].id })
           }
           this.setState({ language: data[0].language_name, languageData: itmes })
         }
@@ -133,28 +139,29 @@ class Register2 extends Component {
         return
       });
   }
-  async requestLocationPermission() {
+  
+  async checkMultiPermissions() {
     try {
-      const granted = await PermissionsAndroid.request(
+      let result = await PermissionsAndroid.requestMultiple(
+        [PermissionsAndroid.PERMISSIONS.CAMERA,
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        {
-          title: 'Cool App Some Permissions',
-          message:
-            'Cool App needs access to your some permissions.',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        },
-      );
-      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-        this.showAlert('Congrate!', 'Please try to registe your account again!');
-      } else {
-        this.showAlert('Location Permission Invalid', 'Please allow your phone settng to get location so that you can enjoy app.');
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO]
+      ).catch(e => {
+        alert(JSON.stringify("request permission" + e.message))
+      });
+      if (result[PermissionsAndroid.PERMISSIONS.CAMERA]
+        && result[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION]
+        && result[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === 'granted') {
+        return true;
       }
+      return false;
     } catch (error) {
       // Error retrieving data
-      console.error(error);
+      alert(JSON.stringify("check permissions = " + error.message));
+      return false;
     }
   }
+
   showAlert(title, body) {
     Alert.alert(
       title,
@@ -170,29 +177,7 @@ class Register2 extends Component {
       { cancelable: false },
     );
   }
-  async checkLocationPermission() {
-    const isPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
-    if (isPermission) {
-      Geolocation.getCurrentPosition(
-        (position) => {
-          const usergeo = {
-            lat_geo: position.coords.latitude,
-            long_geo: position.coords.longitude
-          };
-          alert(JSON.stringify(usergeo));
-          return usergeo;
-        },
-        (error) => {
-          // See error code charts below.
-          alert(error.message);
-          return null;
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-      );
-    } else {
-      await this.requestLocationPermission();
-    }
-  }
+
   getdeviceId = async () => {
     //Getting the Unique Id from here
     var fcmToken = await nativeFirebase.messaging().getToken();
@@ -200,118 +185,176 @@ class Register2 extends Component {
     var deviceInfo = { device_id: id, fcm_id: fcmToken };
     return deviceInfo;
   };
-  onRegister = () => {
+
+  createNewAccount = async (position) => {
+    let deviceInfo = await this.getdeviceId().catch((e) => {
+      alert(JSON.stringify('deviceinfo = ' + e.message))
+    });
+    this.props.updateFCMTocken(deviceInfo.fcm_id);
+    let language_index = 1;
+    this.state.languageData.forEach((item, index) => {
+      if (item.value === this.state.language)
+        language_index = item.id;
+    });
+    let country_index = 1;
+    this.state.countryData.forEach((item, index) => {
+      if (item.value === this.state.country)
+        country_index = item.id;
+    });
+    let city_index = 1;
+    this.state.cityData.forEach((item, index) => {
+      if (item.value === this.state.city)
+        city_index = item.id;
+    })
+    var details = {
+      'username': this.state.nickName,
+      // 'useremail': this.state.email,
+      // 'userpassword': this.state.password,
+      'usergender': this.state.gender,
+      'description': this.state.description,
+      'language': language_index,
+      'country': country_index,
+      'ethnicity': city_index,
+      'birth_date': this.state.birthday,
+      'lat_geo': position !== null ? position.coords.latitude : 0,
+      'long_geo': position !== null ? position.coords.longitude : 0,
+      'device_id': deviceInfo.device_id,
+      'fcm_id': deviceInfo.fcm_id
+    };
+    var formBody = [];
+    for (var property in details) {
+      var encodedKey = encodeURIComponent(property);
+      var encodedValue = encodeURIComponent(details[property]);
+      formBody.push(encodedKey + "=" + encodedValue);
+    }
+    formBody = formBody.join("&");
+    let responseJson = await fetch(`${SERVER_URL}/api/user/signup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: formBody,
+    }).then((response) => response.json()).catch((error) => {
+      alert(JSON.stringify("account create = " + error.message))
+    });
+    if (!responseJson.error) {
+      let user = await QB.users.create({
+        fullName: responseJson.user.name,
+        login: responseJson.user.id,
+        password: 'quickblox',
+        // phone: '404-388-5366',
+        tags: ['#awesome', '#quickblox']
+      }).catch((e) => {
+        alert(JSON.stringify(e.message));
+      });
+      let info = await QB.auth.login({
+        login: user.login,
+        password: 'quickblox'
+      }).catch((e) => {
+        // handle error
+        alert(JSON.stringify("my login = " + e.message));
+      });
+      this.props.updateQuickBlox(info);
+      // const subscription = { deviceToken: deviceInfo.fcm_id };
+      // await QB.subscriptions.create(subscription).catch(e => {
+      //   /* handle error */
+      //   alert(JSON.stringify("subscription = " + e.message));
+      // });
+      let isConnected = await QB.chat.isConnected().catch((e) => {
+        alert(JSON.stringify('chat connect check = ' + e.message));
+      });
+      if (isConnected === false) {
+        await QB.chat.connect({ userId: info.user.id, password: 'quickblox' }).catch((e) => {
+          alert(JSON.stringify("new chat connect = " + e.message));
+        });
+      }
+      await QB.webrtc.init().catch((e) => {
+        /* handle error */
+        alert(JSON.stringify(e.message))
+      });
+      this.nextThrough(responseJson);
+      this.registerLoadingBtn.showLoading(false);
+    }
+  }
+
+  onRegister = async () => {
     this.registerLoadingBtn.showLoading(true);
-    PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION).then(isPermission => {
-      if (isPermission) {
+    if (this.state.register_click_count === 0) {
+      this.setState({
+        register_click_count: 1,
+      });
+      if (Platform.OS === 'android') {
+        let isPermission = await this.checkMultiPermissions();
+        if (isPermission) {
+          Geolocation.getCurrentPosition(
+            (position) => {
+              this.createNewAccount(position);
+            },
+            (error) => {
+              if (error.code == 2) {
+                this.createNewAccount(null);
+              } else {
+                // See error code charts below.
+                alert(error.message);
+                return null;
+              }
+            },
+            // { enableHighAccuracy: Platform.OS != 'android', timeout: 5000, }
+            { enableHighAccuracy: true, timeout: 15000 }
+          );
+        } else {
+          Alert.alert(
+            'Alert',
+            "DazzledDate requires these permissions to be granted. please restart app and check that permissions.",
+            [
+              { text: 'Ok', onPress: () => BackAndroid.exitApp()},
+            ],
+            { cancelable: false },
+          );
+        }
+      } else if (Platform.OS === 'ios') {
+        Geolocation.requestAuthorization();
         Geolocation.getCurrentPosition(
           (position) => {
-            this.getdeviceId().then(deviceInfo => {
-              var details = {
-                'username': this.state.nickName,
-                // 'useremail': this.state.email,
-                // 'userpassword': this.state.password,
-                'usergender': this.state.gender,
-                'description': this.state.description,
-                'language': 1,
-                'country': 1,
-                'ethnicity': 3,
-                'birth_date': this.state.birthday,
-                'lat_geo': position.coords.latitude,
-                'long_geo': position.coords.longitude,
-                'device_id': deviceInfo.device_id,
-                'fcm_id': deviceInfo.fcm_id
-              };
-              var formBody = [];
-              for (var property in details) {
-                var encodedKey = encodeURIComponent(property);
-                var encodedValue = encodeURIComponent(details[property]);
-                formBody.push(encodedKey + "=" + encodedValue);
-              }
-              formBody = formBody.join("&");
-              fetch(`${SERVER_URL}/api/user/signup`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: formBody,
-              }).then((response) => response.json())
-                .then((responseJson) => {
-                  this.registerLoadingBtn.showLoading(false);
-                  if (!responseJson.error) {
-                    // this.onLogin();
-                    Global.saveData.token = responseJson.user.token;
-                    Global.saveData.u_id = responseJson.user.id
-                    Global.saveData.u_name = responseJson.user.name
-                    Global.saveData.u_age = responseJson.user.age
-                    Global.saveData.u_gender = responseJson.user.gender
-                    Global.saveData.u_language = responseJson.user.language
-                    Global.saveData.u_city = responseJson.user.ethnicity
-                    Global.saveData.u_country = responseJson.user.country
-                    Global.saveData.u_description = responseJson.user.description;
-                    Global.saveData.newUser = true;
-                    this.props.navigation.navigate("Browse");
-                  }
-                })
-                .catch((error) => {
-                  alert(error);
-                });
-            });
+            this.createNewAccount(position);
           },
           (error) => {
-            // See error code charts below.
-            alert(error.message);
-            return null;
+            if (error.code == 2) {
+              this.createNewAccount(null);
+            } else {
+              // See error code charts below.
+              alert(error.message);
+              return null;
+            }
           },
-          {enableHighAccuracy: Platform.OS != 'android', timeout: 5000,}
+          // { enableHighAccuracy: Platform.OS != 'android', timeout: 5000, }
+          { enableHighAccuracy: true, timeout: 15000 }
         );
       }
-    });
-    this.registerLoadingBtn.showLoading(false);
+    }
   }
-  onLogin() {
-    nativeFirebase.messaging().getToken().then(fcmToken => {
-      if (fcmToken) {
-        var details = {
-          // 'useremail': this.state.email,
-          // 'userpassword': this.state.password,
-          'fcm_id': fcmToken
-        };
-        var formBody = [];
-        for (var property in details) {
-          var encodedKey = encodeURIComponent(property);
-          var encodedValue = encodeURIComponent(details[property]);
-          formBody.push(encodedKey + "=" + encodedValue);
-        }
-      }
-      formBody = formBody.join("&");
-      fetch(`${SERVER_URL}/api/user/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: formBody,
-      }).then((response) => response.json())
-        .then((responseJson) => {
-          if (!responseJson.error) {
-            Global.saveData.token = responseJson.user.token;
-            Global.saveData.u_id = responseJson.user.id;
-            Global.saveData.u_name = responseJson.user.name;
-            Global.saveData.u_age = responseJson.user.age;
-            Global.saveData.u_gender = responseJson.user.gender;
-            Global.saveData.u_email = responseJson.user.email;
-            Global.saveData.u_language = responseJson.user.language;
-            Global.saveData.u_city = responseJson.user.ethnicity;
-            Global.saveData.u_country = responseJson.user.country;
-            Global.saveData.newUser = true;
-            this.props.navigation.navigate("Browse");
-          }
-        }).catch((error) => {
-          alert(JSON.stringify(error));
-          return
-        });
-    });
+
+  nextThrough = (responseJson) => {
+    this.props.updateUserData(responseJson.user);
+    Global.saveData.token = responseJson.user.token;
+    Global.saveData.u_id = responseJson.user.id;
+    Global.saveData.u_name = responseJson.user.name;
+    Global.saveData.u_age = responseJson.user.age;
+    Global.saveData.u_gender = responseJson.user.gender;
+    Global.saveData.u_language = responseJson.user.language;
+    Global.saveData.u_city = responseJson.user.ethnicity;
+    Global.saveData.u_country = responseJson.user.country;
+    Global.saveData.u_description = responseJson.user.description;
+    Global.saveData.coin_count = responseJson.user.coin_count;
+    Global.saveData.account_status = responseJson.user.account_status;
+    Global.saveData.auto_block = responseJson.user.auto_block;
+    Global.saveData.is_admin = responseJson.user.is_admin;
+    Global.saveData.fan_count = responseJson.user.fan_count;
+    Global.saveData.coin_per_message = responseJson.user.coin_per_message;
+    Global.saveData.newUser = true;
+    this.props.navigation.navigate("BrowseList");
   }
+
   render() {
     return (
       <View style={styles.contentContainer}>
@@ -379,27 +422,27 @@ class Register2 extends Component {
             </View>
           </View>
           <View style={{ width: DEVICE_WIDTH * 0.8, marginLeft: DEVICE_WIDTH * 0.1, alignItems: 'center', justifyContent: 'center', marginTop: 30 }}>
-            <Text style={{ color: '#808080', fontSize: 12, textAlign: 'center' }}>{"BY GETTING SIGNING UP YOU ARE AFREE TO"}</Text>
-            <Text style={{ color: '#808080', fontSize: 12, textAlign: 'center', marginTop: 10 }}>{"OUR TERMS OF SERVICE AND PRIVACY POLICY"}</Text>
+            <Text style={{ color: '#808080', fontSize: 12, textAlign: 'center' }}>{"BY SIGNING UP, YOU AFREE TO"}</Text>
+            <Text style={{ marginTop: 10 }}>
+              <Text style={{ color: '#808080', fontSize: 12, textAlign: 'center' }}>{" OUR "}</Text>
+              <Text style={{ color: '#808080', fontSize: 12, textAlign: 'center', textDecorationLine: 'underline' }} onPress={() => { Linking.openURL('https://dazzleddate.com/terms_and_conditions.html') }}>{" TERMS OF SERVICE "}</Text>
+              <Text style={{ color: '#808080', fontSize: 12, textAlign: 'center' }}>{" AND "}</Text>
+              <Text style={{ color: '#808080', fontSize: 12, textAlign: 'center', textDecorationLine: 'underline' }} onPress={() => { Linking.openURL('https://dazzleddate.com/privacy_policy.html') }}>{" PRIVACY POLICY "}</Text>
+            </Text>
           </View>
           <View style={{ width: DEVICE_WIDTH, height: 50, alignItems: 'center', justifyContent: 'center', marginTop: 30 }}>
-            {/* <TouchableOpacity style={{ width: DEVICE_WIDTH * 0.8, height: 40, borderRadius: 20, backgroundColor: '#DE5859', alignItems: 'center', justifyContent: 'center' }}
-              onPress={() => this.onRegister()}
-            >
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>{"REGISTER"}</Text>             
-            </TouchableOpacity> */}
-              <AnimateLoadingButton
-                ref={c => (this.registerLoadingBtn = c)}
-                width={DEVICE_WIDTH * 0.8}
-                height={40}
-                title="REGISTER"
-                titleFontSize={16}
-                titleColor="#fff"
-                backgroundColor="#DE5859"
-                borderRadius={20}
-                onPress={this.onRegister.bind(this)}
-              />
-            </View>
+            <AnimateLoadingButton
+              ref={c => (this.registerLoadingBtn = c)}
+              width={DEVICE_WIDTH * 0.8}
+              height={40}
+              title="REGISTER"
+              titleFontSize={16}
+              titleColor="#fff"
+              backgroundColor="#DE5859"
+              borderRadius={20}
+              onPress={this.onRegister.bind(this)}
+            />
+          </View>
           <View style={{ height: 100 }} />
         </Content>
       </View>
@@ -420,4 +463,16 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
 });
-export default Register2;
+
+const mapStateToProps = (state) => {
+  return state.reducer
+};
+
+const mapDispatchToProps = dispatch => (
+  bindActionCreators({
+    updateUserData,
+    updateFCMTocken,
+    updateQuickBlox
+  }, dispatch)
+);
+export default connect(mapStateToProps, mapDispatchToProps)(Register2);

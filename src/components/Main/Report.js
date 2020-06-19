@@ -38,7 +38,7 @@ class Report extends Component {
   }
   onReport() {
     if (this.state.problem_content == "") {
-      Alert.alert("Please fill the input field")
+      Alert.alert("Please describe your problem.")
       return
     }
     var details = {
@@ -71,7 +71,7 @@ class Report extends Component {
               { text: 'Ok', onPress: () => console.log('Ok Pressed'), style: 'cancel' },
             ],
             { cancelable: true });
-          this.props.navigation.replace('Browse');
+          this.props.navigation.replace('BrowseList');
         } else {
           alert(JSON.stringify(responseJson.message));
         }

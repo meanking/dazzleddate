@@ -28,14 +28,14 @@ class Signup extends Component {
     super(props);
     this.state = {
       nickName: '',
-      // email: '',
+      email: '',
       // password: '',
       // cpassword: '',
       birthday: new Date(),
       selected_dItem: 6,
       selected_yItem: 30,
       selected_mItem: 6,
-      mitemList: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Spe', 'Oct', 'Nov', 'Dec'],
+      mitemList: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
       yitemList: ['2019'],
       ditemList: ['1'],
     };
@@ -75,7 +75,14 @@ class Signup extends Component {
 
   handleSignup() {
     if (this.state.nickName === '') {
-      Alert.alert("The name is not inputed")
+      Alert.alert(
+        '',
+        "Nickname is required",
+        [
+          {text: 'OK', onPress: () => console.log('OK Pressed')},
+        ],
+        {cancelable: false},
+      );
       return;
     }
     var y_item = this.state.yitemList;
@@ -115,7 +122,7 @@ class Signup extends Component {
     if (deltaYear < 18) {
       Alert.alert(
         '',
-        'Sorry, you must be over 18 years old to register',
+        'Sorry, you must be 18 years or older to register.',
         [
           { text: 'Cancel', onPress: () => console.log('Cancel Pressed'), style: 'cancel' },
           { text: 'Yes', onPress: () => console.log("Ok Pressed") },
@@ -155,6 +162,7 @@ class Signup extends Component {
               />
             </View>
             <View style={{ height: 1, width: DEVICE_WIDTH * 0.8, backgroundColor: '#808080' }} />
+            <Text style={styles.requiredSent}>* This field is required</Text>
             <View style={{ width: DEVICE_WIDTH * 0.8, marginTop: 50, }}>
               <Text style={{ color: '#808080', fontSize: 14, marginLeft: 10 }}>{"BIRTHDAY"}</Text>
             </View>
@@ -185,7 +193,6 @@ class Signup extends Component {
               </Picker>
             </View>
           </View>
-
           {/* <View style={{ width: DEVICE_WIDTH * 0.8, marginLeft: DEVICE_WIDTH * 0.1, marginTop: 20 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Image source={emailIcon} style={{ width: 15, height: 15, tintColor: '#808080' }} />
@@ -264,5 +271,10 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#fff',
   },
+  requiredSent: {
+    textAlign: 'right',
+    color: 'red',    
+    fontSize: 10,
+  }
 });
 export default Signup;
